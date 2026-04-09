@@ -82,8 +82,7 @@ pipeline {
             steps {
                 sh '''
                     set -e
-
-                    sudo bash -c "cat > $NGINX_CONF" <<EOF
+                    sudo tee "$NGINX_CONF" > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
