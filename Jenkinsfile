@@ -1,14 +1,15 @@
 pipeline {
     agent any
-    
+
     triggers {
         githubPush()
     }
 
     environment {
-        SITE_NAME = "jenkinstest"
-        WEB_ROOT  = "/var/www/jenkinstest"
-        NGINX_CONF = "/etc/nginx/sites-available/jenkinstest"
+        IMAGE_NAME     = "jenkinstest:latest"
+        CONTAINER_NAME = "jenkinstest"
+        HOST_PORT      = "8081"
+        CONTAINER_PORT = "80"
     }
 
     options {
@@ -29,6 +30,8 @@ pipeline {
                     set -e
                     echo "Checking required project files..."
 
+                    test -f Dockerfile
+                    test -f nginx.conf
                     test -f index.html
                     test -f sgustyle.css
                     test -f sguscript.js
@@ -39,78 +42,34 @@ pipeline {
             }
         }
 
-        stage('Install Nginx') {
+        stage('Build Docker Image') {
             steps {
                 sh '''
                     set -e
-                    sudo apt update
-                    sudo apt install -y nginx
+                    docker build --pull -t "$IMAGE_NAME" .
                 '''
             }
         }
 
-        stage('Create Web Root') {
+        stage('Stop Old Container') {
             steps {
                 sh '''
-                    set -e
-                    sudo mkdir -p "$WEB_ROOT"
-                    sudo chown -R jenkins:jenkins "$WEB_ROOT"
+                    set +e
+                    docker rm -f "$CONTAINER_NAME"
+                    true
                 '''
             }
         }
 
-        stage('Deploy Website Files') {
+        stage('Run Container') {
             steps {
                 sh '''
                     set -e
-
-                    rm -rf "$WEB_ROOT"/*
-                    cp index.html "$WEB_ROOT"/
-                    cp sgustyle.css "$WEB_ROOT"/
-                    cp sguscript.js "$WEB_ROOT"/
-
-                    [ -f grenada.jpeg ] && cp grenada.jpeg "$WEB_ROOT"/ || true
-                    [ -f grenada-updated.jpeg ] && cp grenada-updated.jpeg "$WEB_ROOT"/ || true
-
-                    echo "Deployed files:"
-                    ls -la "$WEB_ROOT"
-                '''
-            }
-        }
-
-        stage('Configure Nginx Site') {
-            steps {
-                sh '''
-                    set -e
-                    sudo tee "$NGINX_CONF" > /dev/null <<EOF
-server {
-    listen 80;
-    server_name _;
-
-    root $WEB_ROOT;
-    index index.html;
-
-    location / {
-        try_files \\$uri \\$uri/ =404;
-    }
-}
-EOF
-
-                    sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/jenkinstest
-                    sudo rm -f /etc/nginx/sites-enabled/default
-
-                    sudo nginx -t
-                '''
-            }
-        }
-
-        stage('Start Nginx') {
-            steps {
-                sh '''
-                    set -e
-                    sudo systemctl enable nginx
-                    sudo systemctl restart nginx
-                    sudo systemctl status nginx --no-pager
+                    docker run -d \
+                      --name "$CONTAINER_NAME" \
+                      --restart unless-stopped \
+                      -p "$HOST_PORT:$CONTAINER_PORT" \
+                      "$IMAGE_NAME"
                 '''
             }
         }
@@ -119,7 +78,16 @@ EOF
             steps {
                 sh '''
                     set -e
-                    curl -I http://localhost
+                    sleep 2
+                    curl -I http://localhost:$HOST_PORT
+                '''
+            }
+        }
+
+        stage('Show Running Container') {
+            steps {
+                sh '''
+                    docker ps
                 '''
             }
         }
@@ -128,7 +96,7 @@ EOF
     post {
         success {
             echo 'Deployment successful.'
-            echo 'Open your EC2 public IP in a browser to view the site.'
+            echo 'Open your EC2 public IP followed by :8080 in a browser to view the site.'
         }
         failure {
             echo 'Deployment failed. Check the Jenkins console output.'
