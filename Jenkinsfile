@@ -30,11 +30,12 @@ pipeline {
                     set -e
                     echo "Checking required project files..."
 
-                    test -f Dockerfile
-                    test -f nginx.conf
-                    test -f index.html
-                    test -f sgustyle.css
-                    test -f sguscript.js
+                    test -f Dockerfile || { echo "Dockerfile not found"; exit 1; }
+                    test -f nginx.conf || { echo "nginx.conf not found"; exit 1; }
+                    test -f index.html || { echo "index.html not found"; exit 1; }
+                    test -f sgustyle.css || { echo "sgustyle.css not found"; exit 1; }
+                    test -f sguscript.js || { echo "sguscript.js not found"; exit 1; }
+                    test -f grenada-updated.jpeg || { echo "grenada-updated.jpeg not found"; exit 1; }
 
                     echo "Required files found."
                     ls -la
