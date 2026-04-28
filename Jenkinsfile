@@ -97,7 +97,7 @@ pipeline {
     post {
         success {
             echo 'Deployment successful.'
-            echo 'Open your EC2 public IP followed by :8080 in a browser to view the site.'
+            echo 'Open your EC2 public IP followed by :8081 in a browser to view the site.'
         }
         failure {
             echo 'Deployment failed. Check the Jenkins console output.'
