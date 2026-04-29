@@ -6,7 +6,9 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME     = "jenkinstest:latest"
+        DOCKERHUB_USERNAME = "kbhola001"
+        IMAGE_NAME     = "kbhola001/jenkinstest"
+        IMAGE_TAG     = "latest"
         CONTAINER_NAME = "jenkinstest"
         HOST_PORT      = "8081"
         CONTAINER_PORT = "80"
@@ -52,6 +54,30 @@ pipeline {
             }
         }
 
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        set -e
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh '''
+                    set -e
+                    docker push "$IMAGE_NAME:$IMAGE_TAG"
+                '''
+            }
+        }
+
         stage('Stop Old Container') {
             steps {
                 sh '''
@@ -70,7 +96,7 @@ pipeline {
                       --name "$CONTAINER_NAME" \
                       --restart unless-stopped \
                       -p "$HOST_PORT:$CONTAINER_PORT" \
-                      "$IMAGE_NAME"
+                      "$IMAGE_NAME:$IMAGE_TAG"
                 '''
             }
         }
